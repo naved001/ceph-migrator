@@ -36,6 +36,9 @@ def migrate(src, dest, force):
     else:
         dest_pool = dest.split("/")[0]
         dest_image = dest.split("/")[1]
+        if dest_image == "*" or dest_image == "":
+            print("Destination image has * in it. Source image name will be used")
+            dest_image = src_image
 
     if "*" in src_image:
         all_images = get_all_images(src_pool)
