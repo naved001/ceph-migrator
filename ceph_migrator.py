@@ -52,13 +52,17 @@ def migrate(src, dest, force):
         if get_image_info(src_pool, src_image) is None:
             sys.exit("The src image does not exist. Trouble calling rbd info on it")
 
+    destination_host = {"host": DESTINATION_HOST,
+                        "user": DESTINATION_USER,
+                        "port": PORT}
+
     if src_images is None:
         start_copy(src_image, src_pool, dest_image,
-                   dest_pool, DESTINATION_HOST, PORT)
+                   dest_pool, destination_host)
     else:
         for image in src_images:
             start_copy(image, src_pool, image,
-                       dest_pool, DESTINATION_HOST, PORT)
+                       dest_pool, destination_host)
 
 
 def get_image_info(pool, image):
@@ -80,27 +84,36 @@ def get_all_images(pool):
     return images
 
 
-def start_copy(src_image, src_pool, dest_image, dest_pool, dest_ip, port):
+def start_copy(src_image, src_pool, dest_image, dest_pool, destination_host):
     """this is what will actually copy stuff"""
+    host = destination_host["host"]
+    user = destination_host["user"]
+    port = destination_host["port"]
 
-    # Stuff that happens remotely
     remote_command = "nc -l {} | rbd import --no-progress - {}/{}".format(
         port, dest_pool, dest_image)
+    rbd_command = "rbd --no-progress export {}/{} -".format(
+        src_pool, src_image)
+    nc_command = "nc {} {}".format(host, port)
+
+    print("remote_command: " + remote_command)
+    print("rbd_command: " + rbd_command)
+    print("nc_command: " + nc_command)
+
+    # Stuff that happens remotely
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(DESTINATION_HOST, username=DESTINATION_USER)
+    client.connect(host, username=user)
     stdin, stdout, stderr = client.exec_command(remote_command, get_pty=True)
 
     # Stuff that happens on the local host
-    rbd_command = "rbd --no-progress export {}/{} -".format(
-        src_pool, src_image)
-    nc_command = "nc {} {}".format(dest_ip, port)
-    print(rbd_command)
-    print(nc_command)
     rbd_command = subprocess.Popen(rbd_command.split(), stdout=subprocess.PIPE)
     nc_command = subprocess.Popen(
         nc_command.split(), stdin=rbd_command.stdout, stdout=subprocess.PIPE)
-    return nc_command.communicate()[0]
+    output = nc_command.communicate()[0]
+
+    client.close()
+    return output
 
 
 if __name__ == "__main__":
