@@ -101,8 +101,7 @@ def delete_image(pool, image, ip, user):
     """Delete image in remote rbd pool"""
     command = "rbd rm --pool {} --image {}".format(pool, image)
     client = get_ssh_client(ip, user)
-    stdin, stdout, stderr = client.exec_command("command")
-
+    stdin, stdout, stderr = client.exec_command(command)
     exit_status = stderr.channel.recv_exit_status()
     error = stderr.readlines()
     client.close()
