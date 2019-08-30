@@ -52,17 +52,24 @@ def migrate(src, dest, force):
                         "user": DESTINATION_USER,
                         "port": PORT}
 
+    # FIXME: Too many branches
+
     if src_images is None:
         if force:
             delete_image(dest_pool, dest_image,
                          DESTINATION_HOST, DESTINATION_USER)
+        elif image_exists(dest_pool, dest_image, DESTINATION_HOST, DESTINATION_USER):
+            sys.exit("The destination image exists. Please use --force/-f to overwrite")
         start_copy(src_image, src_pool, dest_image,
                    dest_pool, destination_host)
     else:
         for image in src_images:
+            print("\nWorking on source image: " + image)
             if force:
                 delete_image(dest_pool, image,
                              DESTINATION_HOST, DESTINATION_USER)
+            elif image_exists(dest_pool, dest_image, DESTINATION_HOST, DESTINATION_USER):
+                sys.exit("The destination image exists. Please use --force/-f to overwrite")
             start_copy(image, src_pool, image,
                        dest_pool, destination_host)
             sleep(5)
@@ -95,6 +102,16 @@ def get_ssh_client(ip, user):
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     client.connect(ip, username=user)
     return client
+
+
+def image_exists(pool, image, ip, user):
+    """Test if the image exists or not in the remote rbd pool"""
+    command = "rbd info --pool {} --image {}".format(pool, image)
+    client = get_ssh_client(ip, user)
+    stdin, stdout, stderr = client.exec_command(command)
+    exit_status = stderr.channel.recv_exit_status()
+    client.close()
+    return exit_status == 0
 
 
 def delete_image(pool, image, ip, user):
