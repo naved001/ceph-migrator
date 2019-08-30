@@ -1,7 +1,9 @@
 #! /usr/bin/python
-"""This module has everything that his repo has to offer"""
+"""This module has everything that this repo has to offer"""
+
 import sys
 import subprocess
+from time import sleep
 import click
 import paramiko
 
@@ -10,13 +12,7 @@ DESTINATION_USER = "username"
 PORT = "19000"
 
 
-@click.group()
-def cli():
-    """Top level group. I probably don't need this"""
-    pass
-
-
-@cli.command()
+@click.command()
 @click.argument("src")
 @click.argument("dest")
 @click.option("--force", "-f", is_flag=True, default=False, help="Overwrite dest image")
@@ -63,6 +59,7 @@ def migrate(src, dest, force):
         for image in src_images:
             start_copy(image, src_pool, image,
                        dest_pool, destination_host)
+            sleep(5)
 
 
 def get_image_info(pool, image):
@@ -104,7 +101,9 @@ def start_copy(src_image, src_pool, dest_image, dest_pool, destination_host):
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     client.connect(host, username=user)
-    stdin, stdout, stderr = client.exec_command(remote_command, get_pty=True)
+    stdin, stdout, stderr = client.exec_command(remote_command)
+    # wait for netcat to start listening
+    sleep(2)
 
     # Stuff that happens on the local host
     rbd_command = subprocess.Popen(rbd_command.split(), stdout=subprocess.PIPE)
@@ -117,4 +116,4 @@ def start_copy(src_image, src_pool, dest_image, dest_pool, destination_host):
 
 
 if __name__ == "__main__":
-    cli()
+    migrate()
