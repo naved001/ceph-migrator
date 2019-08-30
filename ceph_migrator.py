@@ -59,7 +59,8 @@ def migrate(src, dest, force):
             delete_image(dest_pool, dest_image,
                          DESTINATION_HOST, DESTINATION_USER)
         elif image_exists(dest_pool, dest_image, DESTINATION_HOST, DESTINATION_USER):
-            sys.exit("The destination image exists. Please use --force/-f to overwrite")
+            sys.exit(
+                "The destination image exists. Please use --force/-f to overwrite")
         start_copy(src_image, src_pool, dest_image,
                    dest_pool, destination_host)
     else:
@@ -68,8 +69,9 @@ def migrate(src, dest, force):
             if force:
                 delete_image(dest_pool, image,
                              DESTINATION_HOST, DESTINATION_USER)
-            elif image_exists(dest_pool, dest_image, DESTINATION_HOST, DESTINATION_USER):
-                sys.exit("The destination image exists. Please use --force/-f to overwrite")
+            elif image_exists(dest_pool, image, DESTINATION_HOST, DESTINATION_USER):
+                sys.exit(
+                    "The destination image exists. Please use --force/-f to overwrite")
             start_copy(image, src_pool, image,
                        dest_pool, destination_host)
             sleep(5)
