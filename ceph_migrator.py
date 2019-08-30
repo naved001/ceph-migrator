@@ -53,10 +53,16 @@ def migrate(src, dest, force):
                         "port": PORT}
 
     if src_images is None:
+        if force:
+            delete_image(dest_pool, dest_image,
+                         DESTINATION_HOST, DESTINATION_USER)
         start_copy(src_image, src_pool, dest_image,
                    dest_pool, destination_host)
     else:
         for image in src_images:
+            if force:
+                delete_image(dest_pool, image,
+                             DESTINATION_HOST, DESTINATION_USER)
             start_copy(image, src_pool, image,
                        dest_pool, destination_host)
             sleep(5)
@@ -81,6 +87,37 @@ def get_all_images(pool):
     return images
 
 
+def get_ssh_client(ip, user):
+    """Returns a paramiko ssh client that's connected.
+
+    The caller should close the session"""
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.connect(ip, username=user)
+    return client
+
+
+def delete_image(pool, image, ip, user):
+    """Delete image in remote rbd pool"""
+    command = "rbd rm --pool {} --image {}".format(pool, image)
+    client = get_ssh_client(ip, user)
+    stdin, stdout, stderr = client.exec_command("command")
+
+    exit_status = stderr.channel.recv_exit_status()
+    error = stderr.readlines()
+    client.close()
+
+    if exit_status == 0:
+        print("Destination image was deleted. We will now recreate it")
+    elif exit_status == 2:
+        print("Destination image does not exist. We will create a new one")
+    else:
+        print("Failed to delete image {}/{}".format(pool, image))
+        print("Exit status: " + str(exit_status))
+        print(error)
+        sys.exit(1)
+
+
 def start_copy(src_image, src_pool, dest_image, dest_pool, destination_host):
     """this is what will actually copy stuff"""
     host = destination_host["host"]
@@ -98,9 +135,7 @@ def start_copy(src_image, src_pool, dest_image, dest_pool, destination_host):
     print("nc_command: " + nc_command)
 
     # Stuff that happens remotely
-    client = paramiko.SSHClient()
-    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    client.connect(host, username=user)
+    client = get_ssh_client(host, user)
     stdin, stdout, stderr = client.exec_command(remote_command)
     # wait for netcat to start listening
     sleep(2)
