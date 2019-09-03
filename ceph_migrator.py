@@ -67,9 +67,9 @@ def migrate(src, dest, force, destination_host, data_pool=None):
     assert len(src_images_list) == len(
         dest_images_list), "Number of source and destination images don't match"
 
-    destination_host = {"host": destination_host,
-                        "user": DESTINATION_USER,
-                        "port": PORT}
+    destination = {"host": destination_host,
+                   "user": DESTINATION_USER,
+                   "port": PORT}
 
     for pair in zip(src_images_list, dest_images_list):
         src_image = pair[0]
@@ -83,7 +83,7 @@ def migrate(src, dest, force, destination_host, data_pool=None):
             sys.exit(
                 "The destination image exists. Please use --force/-f to overwrite")
         start_copy(src_image, src_pool, dest_image,
-                   dest_pool, destination_host, data_pool)
+                   dest_pool, destination, data_pool)
 
         if len(src_images_list) > 1:
             sleep(5)
