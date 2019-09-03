@@ -2,78 +2,90 @@
 """This module has everything that this repo has to offer"""
 
 import sys
+import os
 import subprocess
 from time import sleep
 import click
 import paramiko
 
-DESTINATION_HOST = "example.com"
-DESTINATION_USER = "username"
-PORT = "19000"
+DESTINATION_USER = os.environ.get("USER")
+if DESTINATION_USER is None:
+    sys.exit("There's no destination user set. Set the environment variable USER")
+PORT = os.environ.get("PORT", "19000")
 
 
 @click.command()
 @click.argument("src")
 @click.argument("dest")
 @click.option("--force", "-f", is_flag=True, default=False, help="Overwrite dest image")
-def migrate(src, dest, force):
-    """Function to migrate src_image to dest_img"""
-    src_images = None
+@click.option("--data-pool", "-e", help="Specify data pool for EC pool")
+@click.option("--destination-host", "-h", help="Specify the destination host ip/name")
+def migrate(src, dest, force, destination_host, data_pool=None):
+    """
+    This method mostly just parses args and checks if they make sense.
+
+    Once it's happy with the arguments then it will call the appropriate methods
+    to migrate the images
+    """
+    if destination_host is None:
+        destination_host = os.environ.get("destination_host")
+    if destination_host is None:
+        sys.exit(
+            "Either set the environment variable destination_host or provide it via the command line")
+
     if "/" not in src:
         sys.exit("First argument does not have a '/': " + src)
     else:
         src_pool = src.split("/")[0]
         src_image = src.split("/")[1]
 
-    if "/" not in dest:
-        print("src image name will be used for dest image name")
-        dest_pool = dest
-        dest_image = src_image
-    else:
-        dest_pool = dest.split("/")[0]
-        dest_image = dest.split("/")[1]
-        if dest_image == "*" or dest_image == "":
-            print("Destination image has * in it. Source image name will be used")
-            dest_image = src_image
-
     if "*" in src_image:
         all_images = get_all_images(src_pool)
         if src_image == "*":
-            src_images = all_images
+            src_images_list = all_images
         else:
             src_image = src_image.replace("*", "")
-            src_images = [
+            src_images_list = [
                 image for image in all_images if src_image in image]
+        dest_images_list = [src_images_list]
     else:
         if get_image_info(src_pool, src_image) is None:
             sys.exit("The src image does not exist. Trouble calling rbd info on it")
+        src_images_list = [src_image]
 
-    destination_host = {"host": DESTINATION_HOST,
+    if "/" in dest:
+        dest_pool = dest.split("/")[0]
+        dest_image = dest.split("/")[1]
+        if dest_image == "*" or dest_image == "":
+            dest_images_list = src_images_list
+        else:
+            dest_images_list = [dest_image]
+    else:
+        dest_pool = dest
+        dest_images_list = src_images_list
+
+    assert len(src_images_list) == len(
+        dest_images_list), "Number of source and destination images don't match"
+
+    destination_host = {"host": destination_host,
                         "user": DESTINATION_USER,
                         "port": PORT}
 
-    # FIXME: Too many branches
-
-    if src_images is None:
+    for pair in zip(src_images_list, dest_images_list):
+        src_image = pair[0]
+        dest_image = pair[1]
+        print("Migrating {}/{} to {}/{}".format(src_pool,
+                                                src_image, dest_pool, dest_image))
         if force:
             delete_image(dest_pool, dest_image,
-                         DESTINATION_HOST, DESTINATION_USER)
-        elif image_exists(dest_pool, dest_image, DESTINATION_HOST, DESTINATION_USER):
+                         destination_host, DESTINATION_USER)
+        elif image_exists(dest_pool, dest_image, destination_host, DESTINATION_USER):
             sys.exit(
                 "The destination image exists. Please use --force/-f to overwrite")
         start_copy(src_image, src_pool, dest_image,
-                   dest_pool, destination_host)
-    else:
-        for image in src_images:
-            print("\nWorking on source image: " + image)
-            if force:
-                delete_image(dest_pool, image,
-                             DESTINATION_HOST, DESTINATION_USER)
-            elif image_exists(dest_pool, image, DESTINATION_HOST, DESTINATION_USER):
-                sys.exit(
-                    "The destination image exists. Please use --force/-f to overwrite")
-            start_copy(image, src_pool, image,
-                       dest_pool, destination_host)
+                   dest_pool, destination_host, data_pool)
+
+        if len(src_images_list) > 1:
             sleep(5)
 
 
@@ -136,7 +148,7 @@ def delete_image(pool, image, ip, user):
         sys.exit(1)
 
 
-def start_copy(src_image, src_pool, dest_image, dest_pool, destination_host):
+def start_copy(src_image, src_pool, dest_image, dest_pool, destination_host, data_pool):
     """this is what will actually copy stuff"""
     host = destination_host["host"]
     user = destination_host["user"]
@@ -144,6 +156,10 @@ def start_copy(src_image, src_pool, dest_image, dest_pool, destination_host):
 
     remote_command = "nc -l {} | rbd import --no-progress - {}/{}".format(
         port, dest_pool, dest_image)
+
+    if data_pool:
+        remote_command += " --data-pool {}".format(data_pool)
+
     rbd_command = "rbd --no-progress export {}/{} -".format(
         src_pool, src_image)
     nc_command = "nc {} {}".format(host, port)
