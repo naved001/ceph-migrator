@@ -1,2 +1,27 @@
-# ceph-migrator
-Contains a set of scripts to migrate images in an rbd pool from one ceph to another.
+# ceph-rcopy
+
+## What
+
+A simple script that can migrate rbd images in one ceph to an rbd pool on other
+ceph.
+
+It uses netcat to join the rbd import and rbd exports over network.
+This means that the network traffic is **unencrypted**.  So you should probably use it only in private networks or subnets that you control and trust.
+Maybe in the future I'll use ssh as transport which will add encryption, but it would be significantly slower than netcat.
+
+## How
+
+It starts a netcat listener on the recieving host, and then sends the data from the host executing the script.
+
+I am not using python sockets or python-rbd libraries because:
+
+1. Running python code on the remote host to listen on a socket and perform an rbd import would require way more work. The easiest thing to do is run the commands on the remote host that already exist on that host (`netcat -l PORT | rbd import name`).
+2. And if I already have to make calls to those commands on the remote host, I might as well do the same on the source machine.
+
+## Why
+
+Becasue @radonm wanted this to migrate ceph images between our various ceph clusters.
+
+## How to run it?
+
+Just run ./ceph-rcopy.py --help
