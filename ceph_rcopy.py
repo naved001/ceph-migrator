@@ -79,11 +79,12 @@ def rcopy(src, dest, force, destination_host, data_pool=None):
         dest_pool = dest
         dest_images_list = src_images_list
 
-    assert len(src_images_list) == len(
-        dest_images_list), "Number of source and destination images don't match"
+    if len(src_images_list) != len(dest_images_list):
+        sys.exit("Number of source and destination images don't match. \
+                  Did you specify a single destination image name for multiple source images?")
 
-    assert pool_exists(dest_pool, destination_host,
-                       DESTINATION_USER), "Destination pool does not exist"
+    if not pool_exists(dest_pool, destination_host, DESTINATION_USER):
+        sys.exit("Destination pool does not exist")
 
     destination = {"host": destination_host,
                    "user": DESTINATION_USER,
@@ -198,7 +199,7 @@ def start_copy(src_image, src_pool, dest_image, dest_pool, destination_host, dat
 
     # Stuff that happens remotely
     client = get_ssh_client(host, user)
-    stdin, stdout, stderr = client.exec_command(remote_command)
+    client.exec_command(remote_command)
     # wait for netcat to start listening
     sleep(2)
 
