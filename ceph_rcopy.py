@@ -64,7 +64,8 @@ def rcopy(src, dest, force, destination_host, data_pool=None):
         dest_images_list = [src_images_list]
     else:
         if get_image_info(src_pool, src_image) is None:
-            sys.exit("The src image does not exist. Trouble calling rbd info on it")
+            sys.exit(
+                "The src image or pool does not exist. Trouble calling rbd info on it")
         src_images_list = [src_image]
 
     if "/" in dest:
@@ -80,6 +81,8 @@ def rcopy(src, dest, force, destination_host, data_pool=None):
 
     assert len(src_images_list) == len(
         dest_images_list), "Number of source and destination images don't match"
+
+    assert pool_exists(dest_pool), "Destination pool does not exist"
 
     destination = {"host": destination_host,
                    "user": DESTINATION_USER,
@@ -135,6 +138,16 @@ def get_ssh_client(ip, user):
 def image_exists(pool, image, ip, user):
     """Test if the image exists or not in the remote rbd pool"""
     command = "rbd info --pool {} --image {}".format(pool, image)
+    client = get_ssh_client(ip, user)
+    stdin, stdout, stderr = client.exec_command(command)
+    exit_status = stderr.channel.recv_exit_status()
+    client.close()
+    return exit_status == 0
+
+
+def pool_exists(pool, ip, user):
+    """Test if the image exists or not in the remote rbd pool"""
+    command = "rbd pool stats {}".format(pool)
     client = get_ssh_client(ip, user)
     stdin, stdout, stderr = client.exec_command(command)
     exit_status = stderr.channel.recv_exit_status()

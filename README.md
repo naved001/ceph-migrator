@@ -29,4 +29,3 @@ I am not using python sockets or python-rbd libraries because:
 ## Why are you doing this?
 
 Becasue @radonm wanted this to migrate ceph images between our various ceph clusters.
-
