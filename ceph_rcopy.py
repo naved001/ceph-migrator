@@ -82,7 +82,8 @@ def rcopy(src, dest, force, destination_host, data_pool=None):
     assert len(src_images_list) == len(
         dest_images_list), "Number of source and destination images don't match"
 
-    assert pool_exists(dest_pool), "Destination pool does not exist"
+    assert pool_exists(dest_pool, destination_host,
+                       DESTINATION_USER), "Destination pool does not exist"
 
     destination = {"host": destination_host,
                    "user": DESTINATION_USER,
