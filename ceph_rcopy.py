@@ -149,7 +149,7 @@ def image_exists(pool, image, ip, user):
 
 def pool_exists(pool, ip, user):
     """Test if the image exists or not in the remote rbd pool"""
-    command = "rbd pool stats {}".format(pool)
+    command = "rbd ls -p {}".format(pool)
     client = get_ssh_client(ip, user)
     stdin, stdout, stderr = client.exec_command(command)
     exit_status = stderr.channel.recv_exit_status()
